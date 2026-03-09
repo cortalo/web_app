@@ -1,16 +1,18 @@
 package domain
 
+import "go.uber.org/zap"
+
 // UserService 接口，handler 依赖这个
 type UserService interface {
 	Register(name, email string) error
-	GetUser(id string) (User, error)
+	Login(username string, password string) error
 }
 
 // UserRepository 接口
 type UserRepository interface {
 	Save(user *User) error
-	FindByID(id string) (User, error)
 	ExistsByUsername(username string) (bool, error)
+	FindByUsername(username string) (*User, error)
 }
 
 type Snowflake interface {
@@ -48,6 +50,15 @@ func (s *userService) Register(username, password string) error {
 	return s.userRepo.Save(user)
 }
 
-func (s *userService) GetUser(id string) (User, error) {
-	return User{}, nil
+func (s *userService) Login(username string, password string) error {
+	user, err := s.userRepo.FindByUsername(username)
+	if err != nil {
+		zap.L().Info("user not found", zap.String("username", username))
+		return err
+	}
+	if password != user.Password {
+		zap.L().Info("password is wrong", zap.String("username", username))
+		return ErrWrongPassword
+	}
+	return nil
 }

@@ -12,7 +12,7 @@ import (
 type mockUserRepository struct {
 	existsByUsernameFunc func(username string) (bool, error)
 	saveFunc             func(user *User) error
-	findByIDFunc         func(id string) (User, error)
+	findByUsernameFunc   func(username string) (*User, error)
 }
 
 func (m *mockUserRepository) ExistsByUsername(username string) (bool, error) {
@@ -23,8 +23,8 @@ func (m *mockUserRepository) Save(user *User) error {
 	return m.saveFunc(user)
 }
 
-func (m *mockUserRepository) FindByID(id string) (User, error) {
-	return m.findByIDFunc(id)
+func (m *mockUserRepository) FindByUsername(username string) (*User, error) {
+	return m.findByUsernameFunc(username)
 }
 
 type mockSnowflake struct {
@@ -123,4 +123,53 @@ func TestRegister_UserFieldsCorrect(t *testing.T) {
 	assert.Equal(t, int64(999), savedUser.UserID)
 	assert.Equal(t, "alice", savedUser.Username)
 	assert.Equal(t, "password123", savedUser.Password)
+}
+
+func TestLogin_Success(t *testing.T) {
+	var user = User{
+		Username: "alice",
+		Password: "password123",
+	}
+	repo := &mockUserRepository{
+		findByUsernameFunc: func(username string) (*User, error) {
+			return &user, nil
+		},
+	}
+	sf := &mockSnowflake{id: 999}
+	svc := NewUserService(repo, sf)
+
+	err := svc.Login("alice", "password123")
+	assert.NoError(t, err)
+}
+
+func TestLogin_DBError(t *testing.T) {
+	repo := &mockUserRepository{
+		findByUsernameFunc: func(username string) (*User, error) {
+			return nil, errors.New("db error")
+		},
+	}
+	sf := &mockSnowflake{id: 999}
+	svc := NewUserService(repo, sf)
+
+	err := svc.Login("alice", "password123")
+	assert.Error(t, err)
+	assert.EqualError(t, err, "db error")
+}
+
+func TestLogin_WrongPassword(t *testing.T) {
+	var user = User{
+		Username: "alice",
+		Password: "password123",
+	}
+	repo := &mockUserRepository{
+		findByUsernameFunc: func(username string) (*User, error) {
+			return &user, nil
+		},
+	}
+	sf := &mockSnowflake{id: 999}
+	svc := NewUserService(repo, sf)
+
+	err := svc.Login("alice", "password")
+	assert.Error(t, err)
+	assert.EqualError(t, err, "wrong password")
 }

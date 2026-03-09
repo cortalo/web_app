@@ -18,6 +18,10 @@ func Setup(userHandler *handler.UserHandler) *gin.Engine {
 		{
 			users.POST("", userHandler.Register)
 		}
+		login := v1.Group("/login")
+		{
+			login.POST("", userHandler.Login)
+		}
 	}
 
 	return r

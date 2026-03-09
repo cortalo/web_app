@@ -19,12 +19,27 @@ func NewUserHandler(userService domain.UserService) *UserHandler {
 func (h *UserHandler) Register(c *gin.Context) {
 	var p ParamRegister
 	if err := c.ShouldBindJSON(&p); err != nil {
-		zap.L().Error("register with invalid param", zap.Error(err))
+		zap.L().Info("register with invalid param", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "invalid JSON format", "error": err.Error()})
 		return
 	}
 	if err := h.userService.Register(p.Username, p.Password); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "can not register user", "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, "success")
+}
+
+func (h *UserHandler) Login(c *gin.Context) {
+	var p ParamLogin
+	if err := c.ShouldBindJSON(&p); err != nil {
+		zap.L().Info("login with invalid param", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "invalid JSON format", "error": err.Error()})
+		return
+	}
+	if err := h.userService.Login(p.Username, p.Password); err != nil {
+		zap.L().Info("login with error", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "cannot login", "error": err})
 		return
 	}
 	c.JSON(http.StatusOK, "success")

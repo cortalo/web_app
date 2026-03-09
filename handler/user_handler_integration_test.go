@@ -16,6 +16,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/zap"
 )
 
 // ===== 测试套件 =====
@@ -29,6 +30,10 @@ type UserHandlerIntegrationSuite struct {
 
 // 整个套件跑一次
 func (s *UserHandlerIntegrationSuite) SetupSuite() {
+	logger, _ := zap.NewDevelopment()
+	zap.ReplaceGlobals(logger)
+	defer zap.L().Sync()
+
 	// 连接测试数据库
 	db, err := sqlx.Connect("mysql", "root:root@tcp(localhost:3306)/bluebell_test?charset=utf8mb4&parseTime=True")
 	s.Require().NoError(err)
@@ -48,6 +53,7 @@ func (s *UserHandlerIntegrationSuite) SetupSuite() {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.POST("/api/v1/users", s.handler.Register)
+	r.POST("/api/v1/login", s.handler.Login)
 	s.router = r
 }
 
@@ -70,7 +76,7 @@ func (s *UserHandlerIntegrationSuite) TestRegister_Success() {
 		RePassword: "password123",
 	}
 
-	w := s.sendRequest(body)
+	w := s.sendRequest(body, http.MethodPost, "/api/v1/users")
 
 	assert.Equal(s.T(), http.StatusOK, w.Code)
 
@@ -88,10 +94,10 @@ func (s *UserHandlerIntegrationSuite) TestRegister_DuplicateUsername() {
 	}
 
 	// 第一次注册
-	s.sendRequest(body)
+	s.sendRequest(body, http.MethodPost, "/api/v1/users")
 
 	// 第二次注册同名用户
-	w := s.sendRequest(body)
+	w := s.sendRequest(body, http.MethodPost, "/api/v1/users")
 
 	assert.Equal(s.T(), http.StatusBadRequest, w.Code)
 }
@@ -103,7 +109,7 @@ func (s *UserHandlerIntegrationSuite) TestRegister_InvalidParam_MissingUsername(
 		// username 缺失
 	}
 
-	w := s.sendRequest(body)
+	w := s.sendRequest(body, http.MethodPost, "/api/v1/users")
 
 	assert.Equal(s.T(), http.StatusBadRequest, w.Code)
 }
@@ -115,16 +121,58 @@ func (s *UserHandlerIntegrationSuite) TestRegister_InvalidParam_PasswordMismatch
 		RePassword: "different", // 和 password 不一致
 	}
 
-	w := s.sendRequest(body)
+	w := s.sendRequest(body, http.MethodPost, "/api/v1/users")
 
 	assert.Equal(s.T(), http.StatusBadRequest, w.Code)
 }
 
+func (s *UserHandlerIntegrationSuite) TestLogin_Success() {
+	body := ParamRegister{
+		Username:   "alice",
+		Password:   "password123",
+		RePassword: "password123",
+	}
+	w := s.sendRequest(body, http.MethodPost, "/api/v1/users")
+	assert.Equal(s.T(), http.StatusOK, w.Code)
+	var count int
+	s.db.QueryRow("SELECT COUNT(*) FROM user WHERE username = ?", "alice").Scan(&count)
+	assert.Equal(s.T(), 1, count)
+
+	loginBody := ParamLogin{
+		Username: "alice",
+		Password: "password123",
+	}
+	w = s.sendRequest(loginBody, http.MethodPost, "/api/v1/login")
+	assert.Equal(s.T(), http.StatusOK, w.Code)
+
+}
+
+func (s *UserHandlerIntegrationSuite) TestLogin_WrongPassword() {
+	body := ParamRegister{
+		Username:   "alice",
+		Password:   "password123",
+		RePassword: "password123",
+	}
+	w := s.sendRequest(body, http.MethodPost, "/api/v1/users")
+	assert.Equal(s.T(), http.StatusOK, w.Code)
+	var count int
+	s.db.QueryRow("SELECT COUNT(*) FROM user WHERE username = ?", "alice").Scan(&count)
+	assert.Equal(s.T(), 1, count)
+
+	loginBody := ParamLogin{
+		Username: "alice",
+		Password: "password",
+	}
+	w = s.sendRequest(loginBody, http.MethodPost, "/api/v1/login")
+	assert.Equal(s.T(), http.StatusBadRequest, w.Code)
+
+}
+
 // ===== 工具方法 =====
 
-func (s *UserHandlerIntegrationSuite) sendRequest(body any) *httptest.ResponseRecorder {
+func (s *UserHandlerIntegrationSuite) sendRequest(body any, httpType string, target string) *httptest.ResponseRecorder {
 	jsonBody, _ := json.Marshal(body)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", bytes.NewBuffer(jsonBody))
+	req := httptest.NewRequest(httpType, target, bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	s.router.ServeHTTP(w, req)
