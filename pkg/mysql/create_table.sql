@@ -1,3 +1,9 @@
+CREATE DATABASE IF NOT EXISTS bluebell_test
+    DEFAULT CHARACTER SET utf8mb4
+    COLLATE utf8mb4_general_ci;
+
+USE bluebell_test;
+
 DROP TABLE IF EXISTS `user`;
 CREATE TABLE `user` (
                         `id` bigint(20) NOT NULL AUTO_INCREMENT,

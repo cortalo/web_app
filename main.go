@@ -15,6 +15,7 @@ import (
 	"web_app/infrastructure"
 	"web_app/logger"
 	"web_app/pkg/mysql"
+	"web_app/pkg/snowflake"
 	"web_app/router"
 
 	"github.com/spf13/viper"
@@ -38,9 +39,14 @@ func main() {
 		return
 	}
 	defer db.Close()
+	if err := snowflake.Init("2020-01-01", 1); err != nil {
+		fmt.Printf("init snowflake error: %s\n", err)
+		return
+	}
 
+	snowflakeNode := snowflake.NewSnowflakeNode()
 	userRepo := infrastructure.NewMySQLUserRepository(db)
-	userService := domain.NewUserService(userRepo)
+	userService := domain.NewUserService(userRepo, snowflakeNode)
 	userHandler := handler.NewUserHandler(userService)
 	r := router.Setup(userHandler)
 

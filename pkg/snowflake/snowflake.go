@@ -18,6 +18,14 @@ func Init(startTime string, machineID int64) (err error) {
 	node, err = sf.NewNode(machineID)
 	return
 }
-func GenID() int64 {
+
+// Node 实现 domain.Snowflake 接口
+type Node struct{}
+
+func NewSnowflakeNode() *Node {
+	return &Node{}
+}
+
+func (s *Node) NextID() int64 {
 	return node.Generate().Int64()
 }

@@ -5,6 +5,7 @@ import (
 	"web_app/domain"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type UserHandler struct {
@@ -16,5 +17,15 @@ func NewUserHandler(userService domain.UserService) *UserHandler {
 }
 
 func (h *UserHandler) Register(c *gin.Context) {
-	c.JSON(http.StatusOK, "hello") // 先空着
+	var p ParamRegister
+	if err := c.ShouldBindJSON(&p); err != nil {
+		zap.L().Error("register with invalid param", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "invalid JSON format", "error": err.Error()})
+		return
+	}
+	if err := h.userService.Register(p.Username, p.Password); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "can not register user", "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, "success")
 }
