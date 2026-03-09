@@ -99,7 +99,7 @@ func (s *UserHandlerIntegrationSuite) TestRegister_DuplicateUsername() {
 	// 第二次注册同名用户
 	w := s.sendRequest(body, http.MethodPost, "/api/v1/users")
 
-	assert.Equal(s.T(), http.StatusBadRequest, w.Code)
+	assert.Equal(s.T(), http.StatusConflict, w.Code)
 }
 
 func (s *UserHandlerIntegrationSuite) TestRegister_InvalidParam_MissingUsername() {
@@ -164,7 +164,7 @@ func (s *UserHandlerIntegrationSuite) TestLogin_WrongPassword() {
 		Password: "password",
 	}
 	w = s.sendRequest(loginBody, http.MethodPost, "/api/v1/login")
-	assert.Equal(s.T(), http.StatusBadRequest, w.Code)
+	assert.Equal(s.T(), http.StatusUnauthorized, w.Code)
 
 }
 

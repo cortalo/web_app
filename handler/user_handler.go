@@ -24,7 +24,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 	if err := h.userService.Register(p.Username, p.Password); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "can not register user", "error": err.Error()})
+		c.JSON(httpStatusFromError(err), gin.H{"msg": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, "success")
@@ -39,7 +39,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 	}
 	if err := h.userService.Login(p.Username, p.Password); err != nil {
 		zap.L().Info("login with error", zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "cannot login", "error": err})
+		c.JSON(httpStatusFromError(err), gin.H{"msg": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, "success")
