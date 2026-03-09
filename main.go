@@ -9,17 +9,20 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	"web_app/dao/mysql"
+	"web_app/config"
+	"web_app/domain"
+	"web_app/handler"
+	"web_app/infrastructure"
 	"web_app/logger"
-	"web_app/routes"
-	"web_app/settings"
+	"web_app/pkg/mysql"
+	"web_app/router"
 
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
 func main() {
-	if err := settings.Init(); err != nil {
+	if err := config.Init(); err != nil {
 		fmt.Printf("init settings error: %s\n", err)
 		return
 	}
@@ -29,12 +32,18 @@ func main() {
 	}
 	defer zap.L().Sync()
 	zap.L().Debug("logger init success")
-	if err := mysql.Init(); err != nil {
+	db, err := mysql.Init()
+	if err != nil {
 		fmt.Printf("init mysql error: %s\n", err)
 		return
 	}
-	defer mysql.Close()
-	r := routes.Setup()
+	defer db.Close()
+
+	userRepo := infrastructure.NewMySQLUserRepository(db)
+	userService := domain.NewUserService(userRepo)
+	userHandler := handler.NewUserHandler(userService)
+	r := router.Setup(userHandler)
+
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", viper.GetInt("app.port")),
 		Handler: r,
